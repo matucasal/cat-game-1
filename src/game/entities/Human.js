@@ -19,7 +19,7 @@ export class Human {
     graphics.drawRoundedRect(12, -55, 6, 20, 2);  // right arm
     
     // Legs
-    graphics.beginFill(0x333333);
+    graphics.beginFill(0x3366cc); // Blue pants
     graphics.drawRoundedRect(-10, -30, 8, 30, 2); // left leg
     graphics.drawRoundedRect(2, -30, 8, 30, 2);   // right leg
     
@@ -43,6 +43,9 @@ export class Human {
     this.speed = speed;
     this.app = app;
     
+    // Initialize direction property
+    this.direction = 0; // Default facing right (will be updated in update)
+    
     // Line of sight visualization
     this.sightLine = new PIXI.Graphics();
     this.sightLine.zIndex = 100;
@@ -54,65 +57,86 @@ export class Human {
   }
   
   update(delta) {
-    const target = this.patrolPoints[this.currentPoint];
-    
-    // Calculate direction to target
-    const dx = target.x - this.sprite.position.x;
-    const dy = target.y - this.sprite.position.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    // If we've reached the target (or close enough)
-    if (distance < 5) {
-      // Move to next patrol point
-      this.currentPoint = (this.currentPoint + 1) % this.patrolPoints.length;
-    } else {
-      // Move towards target
-      this.sprite.position.x += (dx / distance) * this.speed * delta;
-      this.sprite.position.y += (dy / distance) * this.speed * delta;
+    // If we have patrol points, move toward the current target
+    if (this.patrolPoints.length > 0) {
+      const currentTarget = this.patrolPoints[this.currentPoint];
       
-      // Update zIndex for proper layering
+      // Calculate distance to target
+      const dx = currentTarget.x - this.sprite.position.x;
+      const dy = currentTarget.y - this.sprite.position.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Update direction (stored as radians)
+      this.direction = Math.atan2(dy, dx);
+      
+      // If we're close enough to the target, move to the next point
+      if (distance < 5) {
+        this.currentPoint = (this.currentPoint + 1) % this.patrolPoints.length;
+      } else {
+        // Move toward the target
+        const moveX = (dx / distance) * this.speed * delta;
+        const moveY = (dy / distance) * this.speed * delta;
+        
+        this.sprite.position.x += moveX;
+        this.sprite.position.y += moveY;
+      }
+      
+      // Update zIndex for proper depth sorting
       this.sprite.zIndex = this.sprite.position.y;
+      
+      // Update line of sight visualization
+      this.updateSightLine();
     }
-    
-    // Calculate direction the human is facing
-    this.direction = Math.atan2(dy, dx);
-    
-    // Update sight line visualization
-    this.updateSightLine();
   }
   
   updateSightLine() {
+    // Clear previous sight line
     this.sightLine.clear();
-    this.sightLine.lineStyle(1, 0xff0000, 0.5);
     
-    // Draw field of view cone
+    // Calculate sight cone endpoints
+    const leftAngle = this.direction - this.fov / 2;
+    const rightAngle = this.direction + this.fov / 2;
+    
+    // Draw sight cone
+    this.sightLine.lineStyle(2, 0xff0000, 0.5);
     this.sightLine.beginFill(0xff0000, 0.2);
     this.sightLine.moveTo(0, 0);
+    this.sightLine.lineTo(
+      Math.cos(leftAngle) * this.sightRange,
+      Math.sin(leftAngle) * this.sightRange
+    );
     
-    const angleStep = this.fov / 10;
-    const startAngle = this.direction - this.fov / 2;
-    
-    for (let i = 0; i <= 10; i++) {
-      const angle = startAngle + angleStep * i;
-      const x = Math.cos(angle) * this.sightRange;
-      const y = Math.sin(angle) * this.sightRange;
-      this.sightLine.lineTo(x, y);
+    // Draw arc
+    const steps = 10;
+    for (let i = 0; i <= steps; i++) {
+      const angle = leftAngle + (rightAngle - leftAngle) * (i / steps);
+      this.sightLine.lineTo(
+        Math.cos(angle) * this.sightRange,
+        Math.sin(angle) * this.sightRange
+      );
     }
     
     this.sightLine.lineTo(0, 0);
     this.sightLine.endFill();
   }
   
-  canSee(cat) {
-    // Vector from human to cat
-    const dx = cat.sprite.position.x - this.sprite.position.x;
-    const dy = cat.sprite.position.y - this.sprite.position.y;
+  canSee(catX, catY) {
+    if (catX === undefined || catY === undefined) {
+      return false; // Can't see if no valid coordinates
+    }
     
-    // Distance from human to cat
+    // Calculate distance to cat
+    const dx = catX - this.sprite.position.x;
+    const dy = catY - this.sprite.position.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
     // If cat is out of range, can't see it
     if (distance > this.sightRange) return false;
+    
+    // Make sure direction is defined
+    if (this.direction === undefined) {
+      this.direction = 0; // Default direction
+    }
     
     // Angle to cat
     const angle = Math.atan2(dy, dx);

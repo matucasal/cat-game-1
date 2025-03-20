@@ -2,113 +2,122 @@ import * as PIXI from 'pixi.js';
 
 export class Cat {
   constructor(app) {
-    // Create a more detailed cat sprite
+    // Create a cat sprite with graphics
     const graphics = new PIXI.Graphics();
     
-    // Body (slightly larger oval)
-    graphics.beginFill(0x333333);
-    graphics.drawEllipse(0, 0, 18, 12);
+    // Cat body - using BLACK color
+    graphics.beginFill(0x000000); // Black
+    graphics.drawEllipse(0, 0, 15, 10);
     
-    // Head
-    graphics.drawCircle(18, -8, 10);
+    // Cat head
+    graphics.beginFill(0x000000); // Black
+    graphics.drawCircle(-12, 0, 8);
     
-    // Ears
-    graphics.drawPolygon([18, -13, 24, -22, 21, -13]); // ear 1
-    graphics.drawPolygon([18, -13, 12, -22, 15, -13]); // ear 2
+    // Cat ears
+    graphics.beginFill(0x000000); // Black
+    graphics.drawPolygon([-18, -4, -16, -10, -14, -6]);
+    graphics.drawPolygon([-14, -4, -12, -10, -10, -6]);
     
-    // Front legs
-    graphics.drawRoundedRect(-12, 3, 5, 12, 2); // left front leg
-    graphics.drawRoundedRect(-5, 3, 5, 10, 2);  // right front leg
+    // Cat eyes
+    graphics.beginFill(0x00FF00); // Keep eyes green
+    graphics.drawEllipse(-14, -1, 2, 3);
+    graphics.drawEllipse(-10, -1, 2, 3);
     
-    // Back legs
-    graphics.drawRoundedRect(5, 3, 5, 14, 2);   // left back leg
-    graphics.drawRoundedRect(12, 3, 5, 12, 2);  // right back leg
+    // Cat tail
+    graphics.beginFill(0x000000); // Black
+    graphics.drawPolygon([10, 0, 20, -10, 22, -8, 15, 2]);
     
-    // Tail (curved)
-    graphics.moveTo(18, 0);
-    graphics.bezierCurveTo(
-      25, 0,   // control point 1
-      35, -5,  // control point 2
-      40, -15  // end point
-    );
-    graphics.lineStyle(4, 0x333333, 1);
-    graphics.endFill();
-    
-    // Eyes
-    graphics.beginFill(0x66ff66); // Green cat eyes
-    graphics.drawEllipse(15, -10, 2, 4);  // left eye
-    graphics.drawEllipse(23, -10, 2, 4);  // right eye
-    graphics.endFill();
-    
+    // Create sprite from graphics
     this.sprite = new PIXI.Sprite(app.renderer.generateTexture(graphics));
     this.sprite.anchor.set(0.5);
+    this.sprite.scale.set(1.5);
+    this.sprite.zIndex = 100; // Increased zIndex to always be on top
     
-    this.speed = 10;
-    this.isHiding = false;
-    this.visibilityTimer = 0;
-    
-    // Debug property to track position changes
+    // Movement parameters
+    this.speed = 4;
     this.lastPosition = { x: 0, y: 0 };
+    
+    // Add "caught" state
+    this.caught = false;
+    this.respawnTimer = 0;
+    this.respawnDelay = 120; // frames to wait before respawning (2 seconds at 60fps)
   }
   
   update(delta, controls) {
-    if (this.isHiding) return;
+    // Check if cat is caught
+    if (this.caught) {
+      this.respawnTimer -= delta;
+      
+      // If timer expired, respawn the cat
+      if (this.respawnTimer <= 0) {
+        this.caught = false;
+        this.sprite.visible = true;
+        this.sprite.alpha = 1.0;
+      }
+      return; // Skip the rest of the update if caught
+    }
     
     // Store last position for debugging
     this.lastPosition.x = this.sprite.position.x;
     this.lastPosition.y = this.sprite.position.y;
     
-    // Adjust movement for proper isometric controls
+    // Create a movement vector
+    let dx = 0;
+    let dy = 0;
+    
+    // Isometric controls - convert keypress to isometric direction
     if (controls.up) {
-      this.sprite.position.y -= this.speed * delta; // Move north
+      dx -= this.speed * 0.7071 * delta; // Move northwest
+      dy -= this.speed * 0.7071 * delta;
     }
     if (controls.down) {
-      this.sprite.position.y += this.speed * delta; // Move south
+      dx += this.speed * 0.7071 * delta; // Move southeast
+      dy += this.speed * 0.7071 * delta;
     }
     if (controls.left) {
-      this.sprite.position.x -= this.speed * delta; // Move west
+      dx -= this.speed * 0.7071 * delta; // Move southwest
+      dy += this.speed * 0.7071 * delta;
     }
     if (controls.right) {
-      this.sprite.position.x += this.speed * delta; // Move east
+      dx += this.speed * 0.7071 * delta; // Move northeast
+      dy -= this.speed * 0.7071 * delta;
     }
     
-    // Boundary checks (assuming room dimensions)
-    const roomWidth = 1000; // Adjust based on your room size
-    const roomHeight = 800;  // Adjust based on your room size
-
-    // Prevent going out of bounds
-    this.sprite.position.x = Math.max(-400, Math.min(this.sprite.position.x, roomWidth));
-    this.sprite.position.y = Math.max(-400, Math.min(this.sprite.position.y, roomHeight));
+    // Apply movement
+    this.sprite.position.x += dx;
+    this.sprite.position.y += dy;
     
-    // Update sprite zIndex based on y position for proper isometric rendering
-    this.sprite.zIndex = this.sprite.position.y + 10; // Ensure it's above other objects
+    // Expand safe boundaries to prevent disappearing
+    const roomWidth = 1500;
+    const roomHeight = 1200;
+    this.sprite.position.x = Math.max(-800, Math.min(this.sprite.position.x, roomWidth));
+    this.sprite.position.y = Math.max(-800, Math.min(this.sprite.position.y, roomHeight));
     
-    // Log position change if it occurred
-    if (this.lastPosition.x !== this.sprite.position.x || this.lastPosition.y !== this.sprite.position.y) {
-      console.log("Cat actually moved:", {
-        from: { x: this.lastPosition.x, y: this.lastPosition.y },
-        to: { x: this.sprite.position.x, y: this.sprite.position.y },
-        delta: delta
-      });
+    // ALWAYS ensure the cat is visible with higher priority
+    this.sprite.visible = true;
+    this.sprite.alpha = 1.0;
+    
+    // Force zIndex to be very high to always appear on top
+    this.sprite.zIndex = 1000;
+    
+    // Print position when near the problem area
+    if (this.sprite.position.x < -150 && this.sprite.position.x > -250 &&
+        this.sprite.position.y > 0 && this.sprite.position.y < 100) {
+      console.log("CAT IN PROBLEM AREA:", 
+                 {x: this.sprite.position.x, y: this.sprite.position.y, 
+                  visible: this.sprite.visible, alpha: this.sprite.alpha});
     }
   }
   
-  hide() {
-    this.isHiding = true;
-    this.sprite.alpha = 0.5; // Visual indication of hiding
-    
-    // Unhide after 2 seconds
-    this.visibilityTimer = setTimeout(() => {
-      this.isHiding = false;
-      this.sprite.alpha = 1;
-    }, 2000);
-  }
-  
-  unhide() {
-    if (this.visibilityTimer) {
-      clearTimeout(this.visibilityTimer);
+  // Method to handle being caught by a human
+  getCaught() {
+    if (!this.caught) {
+      this.caught = true;
+      this.respawnTimer = this.respawnDelay;
+      this.sprite.visible = false; // Hide the cat when caught
+      
+      // Display a message or effect for being caught
+      console.log("CAT CAUGHT! Respawning in 2 seconds...");
     }
-    this.isHiding = false;
-    this.sprite.alpha = 1;
   }
 } 
