@@ -60,6 +60,7 @@ export const createLevel = (container, app) => {
       const window = createWindow(tileSize);
       window.position.set(-3 * tileSize, y * tileSize);
       walls.addChild(window);
+      window.hitArea = new PIXI.Circle(tileSize/2, tileSize/2, tileSize);
       exits.push(window);
     }
   }

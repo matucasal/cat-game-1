@@ -44,9 +44,16 @@ const checkObstacleCollisions = (cat, obstacles) => {
     height: 20                      // Adjust based on cat's height
   };
   
+  // Add debug info
+  console.log("Checking collisions for cat at:", {
+    position: {x: cat.sprite.position.x, y: cat.sprite.position.y},
+    bounds: {...catBounds}
+  });
+  
   // Check for collision with each obstacle
   for (let obstacle of obstacles) {
     if (obstacle.hitArea && hitTestRectangle(catBounds, obstacle)) {
+      console.log("Collision detected with obstacle:", obstacle);
       return true; // Collision detected
     }
   }

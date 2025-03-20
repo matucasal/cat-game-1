@@ -103,4 +103,12 @@ export class Cat {
       this.sprite.alpha = 1;
     }, 2000);
   }
+  
+  unhide() {
+    if (this.visibilityTimer) {
+      clearTimeout(this.visibilityTimer);
+    }
+    this.isHiding = false;
+    this.sprite.alpha = 1;
+  }
 } 
