@@ -3,6 +3,7 @@ import { Cat } from './entities/Cat';
 import { Human } from './entities/Human';
 import { cartesianToIsometric } from './utils/isometricUtils';
 import { setupControls } from './controls';
+import { setupCollisions } from './collisions';
 import { createLevel } from './levels/level1';
 
 export const setupGame = (app) => {
@@ -18,8 +19,8 @@ export const setupGame = (app) => {
   // Force update of transform to ensure container position is applied
   gameContainer.updateTransform();
   
-  // Create level (just floor now)
-  createLevel(gameContainer, app);
+  // Create level and get obstacles
+  const { obstacles, exits } = createLevel(gameContainer, app);
   
   // Create player character (cat)
   const cat = new Cat(app);
@@ -51,6 +52,9 @@ export const setupGame = (app) => {
   
   // Setup keyboard controls
   const controls = setupControls(cat);
+  
+  // Setup collision detection
+  setupCollisions(cat, [human1], obstacles, exits);
   
   // Add coordinates display
   const coordsDisplay = document.createElement('div');
